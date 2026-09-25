@@ -65,9 +65,10 @@ public final class SARIFLog: Encodable, Decodable, DecodableWithConfiguration {
     sink: any ValidationSink = ThrowingValidationSink()
   ) throws {
     let logRecord = try SARIFLogRecord.fromJSONData(data)
-    try self.init(from: logRecord, propertyProviders: propertyProviders, sink: sink)
+    try self.init(
+      from: logRecord, propertyProviders: propertyProviders, sink: sink)
   }
-  
+
   public init(
     from logRecord: SARIFLogRecord, propertyProviders: PropertyProviders = [],
     sink: any ValidationSink = ThrowingValidationSink()

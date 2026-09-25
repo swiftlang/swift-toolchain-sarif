@@ -984,6 +984,7 @@ public struct LogicalLocationRecord: SARIFRecordConstraints {
   public let decoratedName: String?
   public let kind: String?
   public let parentIndex: ArrayIndex?
+  public let properties: PropertyBagRecord?
 
   public init(
     index: ArrayIndex? = nil,
@@ -991,7 +992,8 @@ public struct LogicalLocationRecord: SARIFRecordConstraints {
     fullyQualifiedName: String? = nil,
     decoratedName: String? = nil,
     kind: String? = nil,
-    parentIndex: ArrayIndex? = nil
+    parentIndex: ArrayIndex? = nil,
+    properties: PropertyBagRecord? = nil
   ) {
     self.index = index
     self.name = name
@@ -999,6 +1001,7 @@ public struct LogicalLocationRecord: SARIFRecordConstraints {
     self.decoratedName = decoratedName
     self.kind = kind
     self.parentIndex = parentIndex
+    self.properties = properties
   }
 }
 

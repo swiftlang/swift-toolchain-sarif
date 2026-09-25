@@ -16,6 +16,14 @@
         }
       ],
       "columnKind": "unicodeCodePoints",
+      "logicalLocations": [
+        {
+          "name": "Root",
+          "decoratedName": "RootDecorated",
+          "fullyQualifiedName": "RootFullyQualified",
+          "kind": "namespace"
+        }
+      ],
       "results": [
         {
           "codeFlows": [

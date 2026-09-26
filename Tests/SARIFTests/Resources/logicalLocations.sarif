@@ -1,0 +1,58 @@
+{
+  "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/cos02/schemas/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "logicalLocations": [
+        {
+          "name": "N",
+          "fullyQualifiedName": "N",
+          "kind": "namespace"
+        },
+        {
+          "name": "A",
+          "fullyQualifiedName": "N::A",
+          "kind": "type",
+          "parentIndex": 0
+        },
+        {
+          "name": "M",
+          "fullyQualifiedName": "M",
+          "kind": "namespace"
+        }
+      ],
+      "results": [
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "index": 1
+                },
+                {
+                  "index": 2
+                }
+              ]
+            }
+          ],
+          "message": {
+            "text": "Don't do that!"
+          },
+          "ruleId": "Don'tDoThat",
+          "ruleIndex": 0
+        }
+      ],
+      "tool": {
+        "driver": {
+          "name": "driver",
+          "rules": [
+            {
+              "id": "Don'tDoThat"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}

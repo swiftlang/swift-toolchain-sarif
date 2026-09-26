@@ -1,0 +1,30 @@
+{
+  "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/cos02/schemas/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "logicalLocations": [
+        {
+          "name": "A",
+          "kind": "type",
+          "parentIndex": 1
+        },
+        {
+          "name": "B",
+          "kind": "type",
+          "parentIndex": 2
+        },
+        {
+          "name": "C",
+          "kind": "type",
+          "parentIndex": 0
+        }
+      ],
+      "tool": {
+        "driver": {
+          "name": "driver"
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}

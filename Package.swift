@@ -5,7 +5,7 @@ import PackageDescription
 
 import class Foundation.ProcessInfo
 
-fileprivate let cmakeExcludes = [ "CMakeLists.txt" ]
+private let cmakeExcludes = ["CMakeLists.txt"]
 
 let package = Package(
   name: "swift-toolchain-sarif",
@@ -44,6 +44,7 @@ let package = Package(
       dependencies: [
         "ImmutableJSON",
         "SARIFRecords",
+        .product(name: "BitCollections", package: "swift-collections"),
         .product(name: "OrderedCollections", package: "swift-collections"),
       ],
       exclude: cmakeExcludes,
@@ -59,7 +60,9 @@ let package = Package(
     ),
     .target(
       name: "SARIFTestUtilities",
-      dependencies: [],
+      dependencies: [
+        "ImmutableJSON"
+      ],
     ),
     .testTarget(
       name: "SARIFRecordsTests",
@@ -86,7 +89,6 @@ let package = Package(
         "ImmutableJSON",
         "SARIF",
         "SARIFMerge",
-        "SARIFTests",
         "SARIFTestUtilities",
       ],
       resources: [

@@ -29,12 +29,50 @@ internal struct ArrayMerger<Object: MergeableWithIdentity, Parent: AnyObject> {
       key: key, merger: &merger, with: (), map: map, makeOutput: makeOutput)
   }
 
+  mutating func mergeForest<ForestType: Forest>(
+    key: KeyPath<Parent, ForestType.CollectionType>,
+    merger: inout PropertyMerger<Parent>,
+    with context: Object.MergeState.Context,
+    map: ReferenceMergeMap<Object>,
+    makeForest: (_ elements: ForestType.CollectionType) -> ForestType,
+    makeOutput: (_ firstInput: Object, _ parentOutput: Object?) -> Object,
+    addOutput: (_ output: Object) -> Void
+  ) throws where ForestType.CollectionType.Element == Object {
+    let inputs = merger.input[keyPath: key]
+    let forest = makeForest(inputs)
+    var newOutputs: [(index: Int, output: Object)] = []
+    try forest.visitTopDown { index, parentOutput in
+      let input = forest.elements[index]
+      let identity = try input.mergeKey(with: context)
+      let existingMerger = self.byIdentity[identity]
+      let elementMerger: ElementMerger<Object>
+      let first: Bool
+      if let existingMerger {
+        elementMerger = existingMerger
+        first = false
+      } else {
+        // Need to create a new object and its merger.
+        let newOutput = makeOutput(input, parentOutput)
+        newOutputs.append((index: index, output: newOutput))
+        elementMerger = .init(into: newOutput)
+        first = true
+        self.byIdentity[identity] = elementMerger
+      }
+      try elementMerger.merge(
+        from: input, first: first, with: context, sink: merger.sink)
+      map.addDefinition(from: input, into: elementMerger.output)
+      return elementMerger.output
+    }
+
+    newOutputs.sort { $0.index < $1.index }
+    newOutputs.map(\.output).forEach(addOutput)
+  }
+
   mutating func merge(
     key: KeyPath<Parent, [Object]>, merger: inout PropertyMerger<Parent>,
     with context: Object.MergeState.Context, map: ReferenceMergeMap<Object>,
     makeOutput: (_ firstInput: Object) -> Object
   ) throws {
-
     let inputs = merger.input[keyPath: key]
     for input in inputs {
       let identity = try input.mergeKey(with: context)

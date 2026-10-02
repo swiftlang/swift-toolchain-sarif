@@ -172,12 +172,28 @@ internal final class ReferenceMergeMap<Object: AnyObject> {
   func resolve(from input: Object) -> Object {
     self.outputsByInput[ObjectIdentifier(input)]!
   }
+
+  func resolveOptional(from input: Object?) -> Object? {
+    if let input {
+      resolve(from: input)
+    } else {
+      nil
+    }
+  }
 }
 
 extension Result: MergeableWithIdentity {
   internal struct Context {
     fileprivate var rules: ReferenceMergeMap<Rule>
     fileprivate var artifacts: ReferenceMergeMap<Artifact>
+    fileprivate var logicalLocations: ReferenceMergeMap<LogicalLocation>
+    fileprivate var inputSharedLogicalLocations: OrderedSet<LogicalLocation>
+
+    fileprivate var locationContext: Location.Context {
+      .init(
+        artifacts: self.artifacts, logicalLocations: self.logicalLocations,
+        inputSharedLogicalLocations: self.inputSharedLogicalLocations)
+    }
   }
 
   internal struct MergeKey: MergeKeyProtocol<Result> {
@@ -187,7 +203,7 @@ extension Result: MergeableWithIdentity {
     init(for result: Result, with context: Context) throws {
       self.rule = context.rules.resolve(from: result.rule)
       try self.locations = result.locations.map {
-        try $0.mergeKey(with: context.artifacts)
+        try $0.mergeKey(with: context.locationContext)
       }
     }
   }
@@ -201,7 +217,7 @@ extension Result: MergeableWithIdentity {
       try merger.assertEqualOrNil(keys: \.guid)
       try merger.assertNil(keys: \.correlationGuid)
       try merger.assertEqual(keys: \.kind)
-      try merger.mergeFirst(key: \.locations, with: context.artifacts) {
+      try merger.mergeFirst(key: \.locations, with: context.locationContext) {
         let location = Location()
         output.locations.append(location)
         return location
@@ -288,19 +304,41 @@ extension ArtifactLocationReference: MergeableValue {
   }
 }
 
-extension LogicalLocation: MergeHashable {
-  typealias Context = Void
+extension LogicalLocation: MergeableWithIdentity {
+  typealias Context = ReferenceMergeMap<LogicalLocation>
+
+  internal struct MergeState: MergeStateProtocolWithContext<LogicalLocation> {
+    func merge(
+      merger: inout PropertyMerger<LogicalLocation>,
+      with context: Context
+    )
+      throws
+    {
+      try merger.keepFirstSpecified(
+        keys: \.name, \.$fullyQualifiedName, \.decoratedName, \.kind)
+      try merger.keepFirstReference(key: \.parent) { inputParent in
+        context.resolve(from: inputParent)
+      }
+    }
+  }
 
   internal struct MergeKey: MergeKeyProtocol<LogicalLocation> {
     private let name: String?
     private let decoratedName: String?
     private let fullyQualifiedName: String?
+    private let kind: String?
+    private let parent: LogicalLocation?
 
-    init(for logicalLocation: LogicalLocation, with context: Void) {
+    init(for logicalLocation: LogicalLocation, with context: Context) {
       self.name = logicalLocation.name
       self.decoratedName = logicalLocation.decoratedName
       self.fullyQualifiedName = logicalLocation.fullyQualifiedName
-      // TODO: Parent
+      self.kind = logicalLocation.kind
+      if let parent = logicalLocation.parent {
+        self.parent = context.resolve(from: parent)
+      } else {
+        self.parent = nil
+      }
     }
   }
 }
@@ -343,19 +381,23 @@ extension PhysicalLocation: MergeableValue {
 }
 
 extension Location: MergeableValue {
-  typealias Context = ReferenceMergeMap<Artifact>
+  struct Context {
+    let artifacts: ReferenceMergeMap<Artifact>
+    let logicalLocations: ReferenceMergeMap<LogicalLocation>
+    let inputSharedLogicalLocations: OrderedSet<LogicalLocation>
+  }
 
   internal struct MergeKey: MergeKeyProtocol<Location> {
     private let physicalLocation: PhysicalLocation.MergeKey?
     private let logicalLocations: [LogicalLocation.MergeKey]
 
-    init(for location: Location, with context: ReferenceMergeMap<Artifact>)
+    init(for location: Location, with context: Context)
       throws
     {
       self.physicalLocation = try location.physicalLocation?.mergeKey(
-        with: context)
+        with: context.artifacts)
       self.logicalLocations = try location.logicalLocations.map {
-        try $0.mergeKey(with: ())
+        try $0.mergeKey(with: context.logicalLocations)
       }
     }
   }
@@ -364,8 +406,23 @@ extension Location: MergeableValue {
     func merge(merger: inout PropertyMerger<Location>, with context: Context)
       throws
     {
-      try merger.mergeFirst(key: \.physicalLocation, with: context) {
+      try merger.mergeFirst(key: \.physicalLocation, with: context.artifacts) {
         PhysicalLocation()
+      }
+      try merger.keepFirstReferences(key: \.logicalLocations) { inputLocation in
+        if context.inputSharedLogicalLocations.contains(inputLocation) {
+          // This logicalLocation was in the `run.logicalLocations` array, so we
+          // will find the resolved version in the map.
+          context.logicalLocations.resolve(from: inputLocation)
+        } else {
+          // This logicalLocation was defined directly in `location.logicalLocations`,
+          // so we need to create a new definition cloned from the input location.
+          // The parent must be a shared logicalLocation, so we resolve that normally.
+          LogicalLocation(
+            from: inputLocation,
+            parent: context.logicalLocations.resolveOptional(
+              from: inputLocation.parent))
+        }
       }
     }
   }
@@ -387,6 +444,7 @@ extension Run: MergeableWithIdentity {
     private var tool = Merger<Tool>()
     private var artifacts = ArrayMerger<Artifact, Run>()
     private var results = ArrayMerger<Result, Run>()
+    private var logicalLocations = ArrayMerger<LogicalLocation, Run>()
 
     mutating func merge(
       merger: inout PropertyMerger<Run>, with context: Context
@@ -398,15 +456,32 @@ extension Run: MergeableWithIdentity {
 
       let rules = ReferenceMergeMap<Rule>()
       let toolContext = Tool.Context(rules: rules)
-      try tool.merge(key: \.tool, merger: &merger, with: toolContext)
+      try self.tool.merge(key: \.tool, merger: &merger, with: toolContext)
 
       let artifactsMap = ReferenceMergeMap<Artifact>()
-      try artifacts.merge(key: \.artifacts, merger: &merger, map: artifactsMap)
-      { inputArtifact in
+      try self.artifacts.merge(
+        key: \.artifacts, merger: &merger, map: artifactsMap
+      ) { inputArtifact in
         output.addArtifact()
       }
-      let resultContext = Result.Context(rules: rules, artifacts: artifactsMap)
-      try results.merge(
+
+      let logicalLocationsMap = ReferenceMergeMap<LogicalLocation>()
+      try self.logicalLocations.mergeForest(
+        key: \.logicalLocations, merger: &merger, with: logicalLocationsMap,
+        map: logicalLocationsMap,
+        makeForest: { LogicalLocationForest(elements: $0) }
+      ) {
+        inputLocation, parentLocation in
+        LogicalLocation()
+      } addOutput: { outputLocation in
+        output.logicalLocations.append(outputLocation)
+      }
+
+      let resultContext = Result.Context(
+        rules: rules, artifacts: artifactsMap,
+        logicalLocations: logicalLocationsMap,
+        inputSharedLogicalLocations: merger.input.logicalLocations)
+      try self.results.merge(
         key: \.results, merger: &merger, with: resultContext, map: .init()
       ) {
         inputResult in

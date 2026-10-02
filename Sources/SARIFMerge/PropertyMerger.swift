@@ -56,6 +56,17 @@ struct PropertyMerger<T> {
     }
   }
 
+  mutating func keepFirstReferences<V: AnyObject>(
+    key: WritableKeyPath<T, [V]>, resolve: (V) throws -> V
+  ) throws {
+    if self.first {
+      let inputReferences = self.input[keyPath: key]
+      let outputReferences = try inputReferences.map(resolve)
+      self.output[keyPath: key] = outputReferences
+    }
+  }
+
+  /// Keep the reference from the first input for a property that is non-optional.
   mutating func keepFirstReference<V: AnyObject>(
     key: WritableKeyPath<T, V>, resolve: (V) throws -> V
   ) throws {
@@ -66,6 +77,23 @@ struct PropertyMerger<T> {
     }
   }
 
+  /// Keep the reference from the first input for a property that is optional.
+  ///
+  /// The output reference will be nil if the first input reference was nil,
+  /// regardless of whether any subsequence input reference was non-nil.
+  mutating func keepFirstReference<V: AnyObject>(
+    key: WritableKeyPath<T, V?>, resolve: (V) throws -> V
+  ) throws {
+    if self.first {
+      let inputReference = self.input[keyPath: key]
+      if let inputReference {
+        let outputReference = try resolve(inputReference)
+        self.output[keyPath: key] = outputReference
+      }
+    }
+  }
+
+  /// Keep the value of the property from the first input.
   func keepFirst<each V>(keys: repeat ReferenceWritableKeyPath<T, each V>)
     throws
   {
@@ -76,6 +104,9 @@ struct PropertyMerger<T> {
     }
   }
 
+  /// Keep the value of the property from the first input for which the property is non-nil.
+  ///
+  /// If all inputs have a nil value for the property, the output value will be nil as well.
   func keepFirstSpecified<each V>(
     keys: repeat ReferenceWritableKeyPath<T, (each V)?>
   ) throws {
@@ -88,6 +119,7 @@ struct PropertyMerger<T> {
     }
   }
 
+  /// Assert that every input specifies the same reference for the property.
   func assertIdentical<V: AnyObject>(
     key: ReferenceWritableKeyPath<T, V>, definitions: ReferenceMergeMap<V>
   ) throws {
@@ -104,6 +136,7 @@ struct PropertyMerger<T> {
     }
   }
 
+  /// Assert that every input provides an equal value for the property.
   func assertEqual<each V: Equatable>(
     keys: repeat ReferenceWritableKeyPath<T, each V>
   ) throws {
@@ -121,6 +154,8 @@ struct PropertyMerger<T> {
     }
   }
 
+  /// Assert that every input provides an equal value for the property, ignoring
+  /// inputs for which the property was nil.
   func assertEqualOrNil<each V: Equatable>(
     keys: repeat ReferenceWritableKeyPath<T, (each V)?>
   )
@@ -168,6 +203,7 @@ struct PropertyMerger<T> {
     }
   }
 
+  /// Create the union of all input values, deduplicating based on equality.
   func union<each V: Hashable>(
     keys: repeat ReferenceWritableKeyPath<T, OrderedSet<each V>>
   ) throws {

@@ -1,0 +1,60 @@
+{
+  "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/cos02/schemas/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "logicalLocations": [
+        {
+          "name": "N",
+          "fullyQualifiedName": "N",
+          "kind": "namespace"
+        },
+        {
+          "name": "M",
+          "fullyQualifiedName": "M",
+          "kind": "namespace"
+        },
+        {
+          "name": "A",
+          "fullyQualifiedName": "N::A",
+          "kind": "type",
+          "parentIndex": 0
+        },
+        {
+          "name": "B",
+          "fullyQualifiedName": "N::B",
+          "kind": "type",
+          "parentIndex": 0
+        },
+        {
+          "name": "f",
+          "fullyQualifiedName": "N::A::f",
+          "kind": "function",
+          "parentIndex": 2
+        },
+        {
+          "name": "g",
+          "fullyQualifiedName": "N::A::g",
+          "kind": "function",
+          "parentIndex": 2
+        },
+        {
+          "name": "C",
+          "fullyQualifiedName": "M::C",
+          "kind": "type",
+          "parentIndex": 1
+        },
+        {
+          "name": "h",
+          "fullyQualifiedName": "h",
+          "kind": "function"
+        }
+      ],
+      "tool": {
+        "driver": {
+          "name": "driver"
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}

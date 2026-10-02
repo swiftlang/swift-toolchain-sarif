@@ -1,4 +1,6 @@
+fileprivate import BitCollections
 import Foundation
+public import OrderedCollections
 public import SARIFRecords
 
 internal final class RunContext {
@@ -36,7 +38,7 @@ public final class Run: JSONRepresentable<RunRecord> {
   public private(set) var artifacts: [Artifact]
   public var tool: Tool
   public private(set) var results: [Result]
-  public var logicalLocations: [LogicalLocation]
+  public var logicalLocations: OrderedSet<LogicalLocation>
   public var defaultEncoding: String?
   public var defaultSourceLanguage: HierarchicalString?
   public var invocations: [Invocation]
@@ -70,10 +72,10 @@ public final class Run: JSONRepresentable<RunRecord> {
     self.tool = try .init(from: record.tool, sink: sink, with: ruleMap)
     let ruleResolver = RuleResolver(ruleMap: ruleMap, driver: self.tool.driver)
 
-    let logicalLocationMap = LogicalLocationLoadMap(sink: sink)
-    self.logicalLocations = try (record.logicalLocations ?? []).map { record in
-      try logicalLocationMap.loadDefinition(from: record)
-    }
+    let (logicalLocations, logicalLocationMap) = try Self.loadLogicalLocations(
+      records: record.logicalLocations, propertyProviders: propertyProviders,
+      sink: sink)
+    self.logicalLocations = logicalLocations
 
     self.results = try (record.results ?? [])
       .filter {
@@ -120,6 +122,14 @@ public final class Run: JSONRepresentable<RunRecord> {
     return artifact
   }
 
+  @discardableResult
+  public func addLogicalLocation() -> LogicalLocation {
+    let location = LogicalLocation()
+    self.logicalLocations.append(location)
+
+    return location
+  }
+
   public func canonicalize(
     sortingInvocationsBy: (_ lhs: Invocation, _ rhs: Invocation) -> Bool = {
       _, _ in false
@@ -144,7 +154,8 @@ public final class Run: JSONRepresentable<RunRecord> {
   internal func toJSON() throws -> RunRecord {
     let ruleMap = DefinitionSaveMap<Rule, RuleKey>()
     let artifactMap = DefinitionSaveMap<Artifact, ArrayIndex>()
-    let logicalLocationMap = LogicalLocationSaveMap()
+    let (logicalLocations, logicalLocationMap) = try Self.saveLogicalLocations(
+      locations: self.logicalLocations)
 
     return RunRecord(
       tool: try self.tool.toJSON(with: ToolSaveContext(ruleMap: ruleMap)),
@@ -171,7 +182,7 @@ public final class Run: JSONRepresentable<RunRecord> {
       versionControlProvenance: nil,  // FIXME
       originalUriBaseIds: nil,  // FIXME
       specialLocations: nil,  // FIXME
-      logicalLocations: nil,  // FIXME
+      logicalLocations: logicalLocations.isEmpty ? nil : logicalLocations,
       addresses: nil,  // FIXME
       threadFlowLocations: nil,  // FIXME
       graphs: nil,  // FIXME
@@ -182,5 +193,115 @@ public final class Run: JSONRepresentable<RunRecord> {
       newlineSequences: nil,  // FIXME
       redactionTokens: nil  // FIXME
     )
+  }
+
+  private static func saveLogicalLocations(
+    locations: OrderedSet<LogicalLocation>
+  ) throws
+    -> (locations: [LogicalLocationRecord], map: LogicalLocationSaveMap)
+  {
+    let map = LogicalLocationSaveMap()
+    var records: [LogicalLocationRecord?] = .init(
+      repeating: nil, count: locations.count)
+
+    for (index, location) in locations.enumerated() {
+      map.add(location, key: index)
+    }
+
+    let forest = LogicalLocationForest(elements: locations)
+    try forest.visitTopDown { index, parentIndex in
+      let location = locations[index]
+      records[index] = try location.toJSON(with: map)
+      map.add(location, key: index)
+
+      return index
+    }
+
+    return (locations: records.compactMap { $0 }, map: map)
+  }
+
+  private static func loadLogicalLocations(
+    records: [LogicalLocationRecord]?,
+    propertyProviders: PropertyProviders,
+    sink: any ValidationSink
+  ) throws -> (
+    locations: OrderedSet<LogicalLocation>, map: LogicalLocationLoadMap
+  ) {
+
+    let map = LogicalLocationLoadMap(
+      propertyProviders: propertyProviders, sink: sink)
+
+    guard let records,
+      !records.isEmpty
+    else {
+      return (locations: [], map: map)
+    }
+
+    var locations: [LogicalLocation?] = .init(
+      repeating: nil, count: records.count)
+
+    let forest = LogicalLocationRecordForest(elements: records, sink: sink)
+    try forest.visitTopDown { index, parentLocation in
+      let location = try LogicalLocation(
+        from: records[index], parentLocation: parentLocation,
+        propertyProviders: propertyProviders, sink: sink)
+      locations[index] = location
+      map.add(location, key: index)
+
+      return location
+    }
+
+    return (locations: .init(locations.compactMap { $0 }), map: map)
+  }
+}
+
+private struct LogicalLocationRecordForest: Forest {
+  let elements: [LogicalLocationRecord]
+  let sink: any ValidationSink
+
+  func reportCycle(_ chain: [Int]) throws -> Never {
+    let chainString = chain.map { String($0) }.joined(separator: "->")
+    try sink.fatalError(
+      "Circular dependency in 'logicalLocation' parent chain: \(chainString)")
+  }
+
+  func getParentIndex(ofIndex index: Int) throws -> Int? {
+    let parentIndex = self.elements[index].parentIndex
+    if let parentIndex {
+      guard self.elements.indices.contains(parentIndex) else {
+        try sink.fatalError("Parent index '\(parentIndex)' out of bounds.")
+      }
+    }
+
+    return parentIndex
+  }
+}
+
+package struct LogicalLocationForest: Forest {
+  package let elements: OrderedSet<LogicalLocation>
+
+  package init(elements: OrderedSet<LogicalLocation>) {
+    self.elements = elements
+  }
+
+  package func reportCycle(_ chain: [Int]) throws -> Never {
+    let chainDescription = chain.map(String.init).joined(separator: "->")
+
+    throw SARIFError.invalidSARIF(
+      message: "Cycle in logicalLocation parent chain: \(chainDescription)")
+  }
+
+  package func getParentIndex(ofIndex index: Int) throws -> Int? {
+    guard let parent = self.elements[index].parent else {
+      return nil
+    }
+    guard let parentIndex = self.elements.firstIndex(of: parent) else {
+      throw SARIFError.invalidSARIF(
+        message:
+          "Parent of logicalLocation at index '\(index)' is not in the 'logicalLocations' array."
+      )
+    }
+
+    return parentIndex
   }
 }

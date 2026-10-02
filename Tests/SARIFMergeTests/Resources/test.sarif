@@ -16,6 +16,25 @@
         }
       ],
       "columnKind": "unicodeCodePoints",
+      "logicalLocations": [
+        {
+          "name": "S",
+          "decoratedName": "Root$S",
+          "fullyQualifiedName": "Root::S",
+          "kind": "type",
+          "parentIndex": 1
+        },
+        {
+          "name": "Root",
+          "decoratedName": "RootDecorated",
+          "fullyQualifiedName": "RootFullyQualified",
+          "kind": "namespace"
+        },
+        {
+          "name": "T",
+          "parentIndex": 1
+        }
+      ],
       "results": [
         {
           "codeFlows": [
@@ -101,7 +120,19 @@
                   "startColumn": 16,
                   "startLine": 3
                 }
-              }
+              },
+              "logicalLocations": [
+                {
+                  "name": "func",
+                  "fullyQualifiedName": "Root::S::func",
+                  "parentIndex": 0,
+                  "kind": "function"
+                },
+                {
+                  "name": "def",
+                  "kind": "other"
+                }
+              ]
             }
           ],
           "message": {

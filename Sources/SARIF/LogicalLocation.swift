@@ -1,11 +1,13 @@
-internal import SARIFRecords
+public import SARIFRecords
 
 internal struct LogicalLocationLoadTraits: DefinitionLoadMapTraits {
   typealias Definition = LogicalLocation
 
+  fileprivate let propertyProviders: PropertyProviders
   fileprivate let sink: any ValidationSink
 
-  init(sink: any ValidationSink) {
+  init(propertyProviders: PropertyProviders, sink: any ValidationSink) {
+    self.propertyProviders = propertyProviders
     self.sink = sink
   }
 
@@ -19,11 +21,15 @@ internal typealias LogicalLocationLoadMap = DefinitionLoadMap<
 >
 
 extension LogicalLocationLoadMap {
-  convenience init(sink: any ValidationSink) {
-    self.init(with: LogicalLocationLoadTraits(sink: sink))
+  convenience init(
+    propertyProviders: PropertyProviders, sink: any ValidationSink
+  ) {
+    self.init(
+      with: LogicalLocationLoadTraits(
+        propertyProviders: propertyProviders, sink: sink))
   }
 
-  func validateAgainstDefinition<T: Equatable>(
+  private func validateAgainstDefinition<T: Equatable>(
     key: KeyPath<LogicalLocationRecord, T?>, reference: LogicalLocationRecord,
     definitionValue: T?
   ) throws {
@@ -36,20 +42,34 @@ extension LogicalLocationLoadMap {
     }
   }
 
-  func loadDefinition(from record: LogicalLocationRecord) throws
-    -> LogicalLocation
-  {
-    try LogicalLocation(from: record, sink: self.traits.sink)
-  }
-
   func resolveOrCreate(from record: LogicalLocationRecord) throws
     -> LogicalLocation
   {
     if let index = record.index {
-      return try self.resolveDefinition(key: index)
+      let definition = try self.resolveDefinition(key: index)
+      try validateAgainstDefinition(
+        key: \.name, reference: record, definitionValue: definition.name)
+      try validateAgainstDefinition(
+        key: \.decoratedName, reference: record,
+        definitionValue: definition.decoratedName)
+      try validateAgainstDefinition(
+        key: \.fullyQualifiedName, reference: record,
+        definitionValue: definition.$fullyQualifiedName)
+      try validateAgainstDefinition(
+        key: \.kind, reference: record, definitionValue: definition.kind)
+      return definition
     } else {
       // Create a new object.
-      return try LogicalLocation(from: record, sink: self.traits.sink)
+      let parentLocation: LogicalLocation?
+      if let parentIndex = record.parentIndex {
+        parentLocation = try self.resolveDefinition(key: parentIndex)
+      } else {
+        parentLocation = nil
+      }
+      return try LogicalLocation(
+        from: record, parentLocation: parentLocation,
+        propertyProviders: self.traits.propertyProviders, sink: self.traits.sink
+      )
     }
   }
 }
@@ -84,32 +104,108 @@ where Definition == LogicalLocation, Key == ArrayIndex {
 
     return .init(
       index: nil, name: logicalLocation.name,
-      fullyQualifiedName: logicalLocation.fullyQualifiedName,
+      fullyQualifiedName: logicalLocation.$fullyQualifiedName,
       decoratedName: logicalLocation.decoratedName, kind: logicalLocation.kind,
       parentIndex: parentIndex)
   }
 }
 
-public final class LogicalLocation: Hashable, Identifiable, JSONRepresentable<
-  LogicalLocationRecord
->
-{
-  public let name: String?
-  public let fullyQualifiedName: String?
-  public let decoratedName: String?
-  public let kind: String?
-  public let parent: LogicalLocation?
+/// Defaults the `fullyQualifiedName` property to be the value of the `name` property for a root `logicalLocation`.
+@propertyWrapper
+public struct LogicalFullyQualifiedName {
+  private var value: String? = nil
 
-  fileprivate init(
-    from logicalLocationRecord: LogicalLocationRecord, sink: any ValidationSink
+  public init(value: String? = nil) {
+    self.value = value
+  }
+
+  public static subscript<Owner: LogicalLocation>(
+    _enclosingInstance owner: Owner,
+    wrapped wrapped: ReferenceWritableKeyPath<Owner, String?>,
+    storage storage: ReferenceWritableKeyPath<Owner, Self>
+  ) -> String? {
+    get {
+      if let fullyQualifiedName = owner[keyPath: storage].value {
+        // Explicitly specified.
+        fullyQualifiedName
+      } else if owner.parent == nil {
+        // Fall back to the `name` property.
+        owner.name
+      } else {
+        // Not specified, but not a root, so no default value.
+        nil
+      }
+    }
+    set { owner[keyPath: storage].value = newValue }
+  }
+
+  @available(*, unavailable, message: "Must be a member of LogicalLocation")
+  public var wrappedValue: String? {
+    get { fatalError() }
+    set { fatalError() }
+  }
+
+  public var projectedValue: String? {
+    get { value }
+    set { value = newValue }
+  }
+}
+
+public final class LogicalLocation: Hashable, Identifiable,
+  JSONRepresentable<LogicalLocationRecord>
+{
+  public var name: String?
+  @LogicalFullyQualifiedName
+  public var fullyQualifiedName: String?
+  public var decoratedName: String?
+  public var kind: String?
+  public var parent: LogicalLocation?
+  public var properties: PropertyBag
+
+  package init() {
+    self.properties = .init()
+  }
+
+  package init(from location: LogicalLocation, parent: LogicalLocation?) {
+    self.name = location.name
+    self.decoratedName = location.decoratedName
+    self.kind = location.kind
+    self.parent = parent
+    self.properties = location.properties
+    self.$fullyQualifiedName = location.$fullyQualifiedName
+  }
+
+  internal init(
+    from logicalLocationRecord: LogicalLocationRecord,
+    parentLocation: LogicalLocation?, propertyProviders: PropertyProviders,
+    sink: any ValidationSink
   )
     throws
   {
     self.name = logicalLocationRecord.name
-    self.fullyQualifiedName = logicalLocationRecord.fullyQualifiedName
     self.decoratedName = logicalLocationRecord.decoratedName
     self.kind = logicalLocationRecord.kind
-    self.parent = nil  // TODO: Parents
+    self.parent = parentLocation
+    self.properties = try .init(
+      from: logicalLocationRecord.properties ?? [:],
+      providers: propertyProviders)
+    self.$fullyQualifiedName = logicalLocationRecord.fullyQualifiedName
+  }
+
+  func toJSON(with logicalLocations: LogicalLocationSaveMap) throws
+    -> LogicalLocationRecord
+  {
+    let parentIndex: Int?
+    if let parentLocation = self.parent {
+      parentIndex = logicalLocations.definitionIndex(of: parentLocation)
+    } else {
+      parentIndex = nil
+    }
+
+    return try .init(
+      index: nil, name: self.name, fullyQualifiedName: self.$fullyQualifiedName,
+      decoratedName: self.decoratedName, kind: self.kind,
+      parentIndex: parentIndex, properties: self.properties.ifNotEmpty.toJSON())
   }
 
   public func hash(into hasher: inout Hasher) {

@@ -1,5 +1,5 @@
-import Foundation
-import OrderedCollections
+public import Foundation
+public import OrderedCollections
 public import SARIFRecords
 
 public final class Artifact: Identifiable, Hashable, SynthesizableDefinition,

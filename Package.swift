@@ -22,7 +22,7 @@ let package = Package(
   dependencies: [
     .package(
       url: "https://github.com/apple/swift-collections.git",
-      .upToNextMajor(from: "1.1.6"))
+      .upToNextMajor(from: "1.7.1"))
   ],
   targets: [
     .target(

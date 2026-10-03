@@ -68,6 +68,14 @@ public struct JSONDictionary<K: Hashable & Codable, V>: Sequence,
     return .init(from: orderedDictionary)
   }
 
+  public func compactMapValues<T>(_ transform: (V) throws -> T?) rethrows
+    -> JSONDictionary<K, T>
+  {
+    let orderedDictionary: OrderedDictionary<K, T> = try self.dictionary
+      .compactMapValues(transform)
+    return .init(from: orderedDictionary)
+  }
+
   public mutating func updateValue(_ value: V, forKey key: K) -> V? {
     self.dictionary.updateValue(value, forKey: key)
   }

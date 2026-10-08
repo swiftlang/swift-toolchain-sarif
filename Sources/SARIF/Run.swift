@@ -35,7 +35,7 @@ internal final class RunSaveContext {
 
 public final class Run: JSONRepresentable<RunRecord> {
   public var columnKind: ColumnKind?
-  public private(set) var artifacts: [Artifact]
+  public var artifacts: OrderedSet<Artifact>
   public var tool: Tool
   public private(set) var results: [Result]
   public var logicalLocations: OrderedSet<LogicalLocation>
@@ -51,7 +51,7 @@ public final class Run: JSONRepresentable<RunRecord> {
 
     let artifactMap = ArtifactLoadMap(sink: sink)
     let artifactDefaults = try RunContext(from: record, sink: sink)
-    self.artifacts = try (record.artifacts ?? []).enumerated().map {
+    let artifacts = try (record.artifacts ?? []).enumerated().map {
       index, artifactRecord in
       let artifact = try Artifact(
         from: artifactRecord, sink: sink, index: ArrayIndex(index),
@@ -59,6 +59,7 @@ public final class Run: JSONRepresentable<RunRecord> {
       artifactMap.add(artifact, key: ArrayIndex(index))
       return artifact
     }
+    self.artifacts = .init(artifacts)
     let artifactResolver = ArtifactReferenceResolver(artifacts: artifactMap)
 
     self.invocations = try (record.invocations ?? []).map { invocationRecord in

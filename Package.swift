@@ -15,7 +15,7 @@ let package = Package(
   products: [
     .library(
       name: "SARIF",
-      targets: ["SARIF", "SARIFMerge", "SARIFRecords"],
+      targets: ["SARIF", "SARIFBuilders", "SARIFMerge", "SARIFRecords"],
     ),
     .library(name: "ImmutableJSON", targets: ["ImmutableJSON"]),
   ],
@@ -46,6 +46,13 @@ let package = Package(
         "SARIFRecords",
         .product(name: "BitCollections", package: "swift-collections"),
         .product(name: "OrderedCollections", package: "swift-collections"),
+      ],
+      exclude: cmakeExcludes,
+    ),
+    .target(
+      name: "SARIFBuilders",
+      dependencies: [
+        "SARIF"
       ],
       exclude: cmakeExcludes,
     ),

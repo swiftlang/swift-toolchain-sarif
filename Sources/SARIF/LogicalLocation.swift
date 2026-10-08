@@ -162,8 +162,17 @@ public final class LogicalLocation: Hashable, Identifiable,
   public var parent: LogicalLocation?
   public var properties: PropertyBag
 
-  package init() {
-    self.properties = .init()
+  public init(
+    kind: String? = nil, parent: LogicalLocation? = nil, name: String? = nil,
+    fullyQualifiedName: String? = nil, decoratedName: String? = nil,
+    properties: PropertyBag = .init()
+  ) {
+    self.kind = kind
+    self.parent = parent
+    self.name = name
+    self.decoratedName = decoratedName
+    self.properties = properties
+    self.$fullyQualifiedName = fullyQualifiedName
   }
 
   package init(from location: LogicalLocation, parent: LogicalLocation?) {

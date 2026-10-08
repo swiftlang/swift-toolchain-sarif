@@ -80,7 +80,7 @@ public final class ReportingDescriptor<Kind: ReportingDescriptorKind>: Hashable,
       try .init(from: $0, sink: sink)
     }
     self.$messageStrings = try record.messageStrings.map { record in
-      try record.mapValues { messageRecord in
+      try record.orderedDictionary.mapValues { messageRecord in
         try MultiFormatMessageString(from: messageRecord, sink: sink)
       }
     }

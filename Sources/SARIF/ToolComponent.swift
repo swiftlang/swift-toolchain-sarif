@@ -165,7 +165,7 @@ public final class ToolComponent: JSONRepresentable<ToolComponentRecord> {
     self.language = record.language  // TODO: Required for translation
     self.globalMessageStrings =
       try record.globalMessageStrings.map { messageStrings in
-        try messageStrings.mapValues { messageString in
+        try messageStrings.orderedDictionary.mapValues { messageString in
           try MultiFormatMessageString(from: messageString, sink: sink)
         }
       } ?? [:]

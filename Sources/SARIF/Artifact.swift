@@ -18,7 +18,17 @@ public final class Artifact: Identifiable, Hashable, SynthesizableDefinition,
     let uriBaseId: String?
   }
 
-  public init() {
+  public init(
+    location: ArtifactLocation? = nil, length: Int64? = nil,
+    roles: some Sequence<ArtifactRole> = [], mimeType: String? = nil,
+    encoding: String? = nil, sourceLanguage: HierarchicalString? = nil
+  ) {
+    self.location = location
+    self.length = length
+    self.roles = .init(roles)
+    self.mimeType = mimeType
+    self.encoding = encoding
+    self.sourceLanguage = sourceLanguage
   }
 
   internal init(synthesizedFromKey key: Key) {

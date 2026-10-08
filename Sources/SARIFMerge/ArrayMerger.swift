@@ -22,7 +22,8 @@ internal struct ArrayMerger<Object: MergeableWithIdentity, Parent: AnyObject> {
   private var byIdentity: [Object.MergeKey: ElementMerger<Object>] = [:]
 
   mutating func merge(
-    key: KeyPath<Parent, [Object]>, merger: inout PropertyMerger<Parent>,
+    key: KeyPath<Parent, some Sequence<Object>>,
+    merger: inout PropertyMerger<Parent>,
     map: ReferenceMergeMap<Object>, makeOutput: (_ firstInput: Object) -> Object
   ) throws where Object.MergeState.Context == Void {
     try merge(
@@ -69,7 +70,8 @@ internal struct ArrayMerger<Object: MergeableWithIdentity, Parent: AnyObject> {
   }
 
   mutating func merge(
-    key: KeyPath<Parent, [Object]>, merger: inout PropertyMerger<Parent>,
+    key: KeyPath<Parent, some Sequence<Object>>,
+    merger: inout PropertyMerger<Parent>,
     with context: Object.MergeState.Context, map: ReferenceMergeMap<Object>,
     makeOutput: (_ firstInput: Object) -> Object
   ) throws {

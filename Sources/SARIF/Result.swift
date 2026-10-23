@@ -133,6 +133,7 @@ public final class Result: JSONRepresentableWithContext<ResultRecord>,
   public var resolvedMessage: MultiFormatMessageString {
     self.getMessageString()!
   }
+  public var baselineState: BaselineState?
   public var defaultSortKey: DefaultSortKey { .init(for: self) }
 
   public convenience init(rule: Rule, messageText: String) {
@@ -181,8 +182,9 @@ public final class Result: JSONRepresentableWithContext<ResultRecord>,
     self.fingerprints = record.fingerprints ?? .init()
     self.partialFingerprints = record.partialFingerprints ?? .init()
     self.rank = record.rank  // TODO: Validation
+    self.baselineState = record.baselineState
 
-    // TODO: codeFlows, graphs, graphTraversals, stacks, relatedLocations, suppressions, baselineState, attachments, workItemUris, hostedViewerUri, provenance, fixes, occurrenceCount,
+    // TODO: codeFlows, graphs, graphTraversals, stacks, relatedLocations, suppressions, attachments, workItemUris, hostedViewerUri, provenance, fixes, occurrenceCount,
 
     try $record.validateRuleId(\.ruleId)
     if let rule = record.rule {
@@ -263,7 +265,7 @@ public final class Result: JSONRepresentableWithContext<ResultRecord>,
       graphs: nil,  // FIXME
       graphTraversals: nil,  // FIXME
       stacks: nil,  // FIXME
-      baselineState: nil,  // FIXME
+      baselineState: self.baselineState,
       rank: try rank.toJSON(),
       attachments: nil,  // FIXME
       workItemUris: nil,  // FIXME

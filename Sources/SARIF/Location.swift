@@ -42,6 +42,32 @@ public struct Location: JSONRepresentableWithContext<LocationRecord> {
     self.message = message
   }
 
+  public init(
+    at region: Region,
+    in artifact: Artifact
+  ) {
+    let artifactLocation = ArtifactLocationReference(to: artifact)
+    self.init(
+      at: PhysicalLocation(artifactLocation: artifactLocation, region: region))
+  }
+
+  public init(
+    at textRegion: TextRegion,
+    in artifact: Artifact
+  ) {
+    self.init(at: Region(text: textRegion), in: artifact)
+  }
+
+  public init(
+    startLine: Int32, startColumn: Int32? = nil, endLine: Int32? = nil,
+    endColumn: Int32? = nil, in artifact: Artifact
+  ) {
+    let textRegion = TextRegion(
+      startLine: startLine, startColumn: startColumn, endLine: endLine,
+      endColumn: endColumn)
+    self.init(at: textRegion, in: artifact)
+  }
+
   internal init(
     from locationRecord: LocationRecord, sink: any ValidationSink,
     artifacts: ArtifactReferenceResolver,

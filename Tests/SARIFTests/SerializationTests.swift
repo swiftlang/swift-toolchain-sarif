@@ -69,3 +69,62 @@ func serializeWithDriverRules() throws {
 
   expectJSON(expected: expected, actual: actual)
 }
+
+@Test
+func serializeFull() throws {
+  let actual = SARIFLog()
+  let driver = ToolComponent(named: "driver")
+  let rule1 = driver.addRule(id: "Don'tDoThat")
+  let rule2 = driver.addRule(id: "Don'tDoThatEither")
+
+  let run = actual.addRun(tool: Tool(driver: driver))
+  run.baselineGuid = UUID()
+
+  let result1 = run.addResult(rule: rule1, messageText: "Don't do that!")
+  result1.baselineState = .absent
+
+  let result2 = run.addResult(rule: rule1, messageText: "Don't do that!")
+  result2.baselineState = .new
+
+  let result3 = run.addResult(rule: rule2, messageText: "Don't do that either!")
+  result3.baselineState = .unchanged
+
+  let expected = SARIFLogRecord(
+    runs: [
+      .init(
+        tool: .init(
+          driver: .init(
+            name: "driver",
+            rules: [
+              .init(id: rule1.id),
+              .init(id: rule2.id),
+            ]
+          )
+        ),
+        results: [
+          .init(
+            message: .init(text: "Don't do that!"),
+            ruleId: .init(fromComponents: rule1.id),
+            ruleIndex: 0,
+            baselineState: .absent
+          ),
+          .init(
+            message: .init(text: "Don't do that!"),
+            ruleId: .init(fromComponents: rule1.id),
+            ruleIndex: 0,
+            baselineState: .new
+          ),
+          .init(
+            message: .init(text: "Don't do that either!"),
+            ruleId: .init(fromComponents: rule2.id),
+            ruleIndex: 1,
+            baselineState: .unchanged
+          ),
+        ],
+        baselineGuid: run.baselineGuid
+      )
+    ]
+  )
+
+  expectJSON(expected: expected, actual: actual)
+}

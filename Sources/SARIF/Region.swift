@@ -22,7 +22,7 @@ public struct TextRegion: Hashable, Comparable, SpaceshipComparable {
   }
 
   public init(line: Int32) {
-    self.init(startLine: line, startColumn: 1, endLine: line, endColumn: nil)
+    self.init(startLine: line)
   }
 
   public init(line: Int32, column: Int32) {
@@ -33,16 +33,17 @@ public struct TextRegion: Hashable, Comparable, SpaceshipComparable {
 
   public init(line: Int32, startColumn: Int32, endColumn: Int32) {
     self.init(
-      startLine: line, startColumn: startColumn, endLine: line,
+      startLine: line, startColumn: startColumn,
       endColumn: endColumn)
   }
 
   public init(
-    startLine: Int32, startColumn: Int32, endLine: Int32, endColumn: Int32?
+    startLine: Int32, startColumn: Int32? = nil, endLine: Int32? = nil,
+    endColumn: Int32? = nil
   ) {
     self.startLine = startLine
-    self.endLine = endLine
-    self.startColumn = startColumn
+    self.endLine = endLine ?? startLine
+    self.startColumn = startColumn ?? 1
     self.endColumn = endColumn
   }
 

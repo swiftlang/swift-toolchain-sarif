@@ -222,10 +222,6 @@ public final class Result: JSONRepresentableWithContext<ResultRecord>,
     }
   }
 
-  public func getPartialFingerprints() -> Fingerprints {
-    self.partialFingerprints
-  }
-
   internal func toJSON(with context: ResultSaveContext) throws -> ResultRecord {
     let ruleReference = context.makeRuleReference(
       to: self.rule, suffix: self.ruleIdSuffix)

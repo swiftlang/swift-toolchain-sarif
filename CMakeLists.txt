@@ -26,6 +26,29 @@ if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
 endif()
 
 set(CMAKE_MACOSX_RPATH YES)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH YES)
+
+add_compile_options(
+  "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-package-name ${SARIF_PACKAGE_NAME}>"
+  # FIXME: this is *HIGHLY* discouraged. Forcing colored diagnostics makes
+  # diagnostics impossible to process in CI environments and when they are
+  # redirected. The default behaviour of the driver to detect a tty vs
+  # redirected stream allows removal of ANSI escape codes.
+  $<$<COMPILE_LANGUAGE:Swift>:-color-diagnostics>
+)
+
+# FIXME: this is discouraged; this reuses a non-standard build option that is
+# scoped to the LLVM project and reuses that in the case where a standalone
+# project is being built. `LLVM_*` variables are meant to be only used in LLVM's
+# build.
+if(LLVM_USE_LINKER)
+  add_link_options($<LINKER_LANGAUGE:Swift>:-use-ld=${LLVM_USE_LINKER}>)
+endif()
+
+if(APPLE)
+  # Allow install_name_tool to update paths (for rdar://109473564)
+  string(APPEND CMAKE_SHARED_LINKER_FLAGS " LINKER:-headerpad_max_install_names")
+endif()
 
 include(AddSARIFLibrary)
 

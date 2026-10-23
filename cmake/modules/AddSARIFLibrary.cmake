@@ -33,10 +33,6 @@ function(add_sarif_library name)
     INTERFACE_INCLUDE_DIRECTORIES ${module_dir}
   )
 
-  target_compile_options(${target} PRIVATE
-    "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-package-name ${SARIF_PACKAGE_NAME}>"
-  )
-
   # Give the modules a distinct ABI name when requested, so that a toolchain
   # copy of this library can coexist in one process with a copy that a client
   # built as a SwiftPM dependency.
@@ -45,35 +41,12 @@ function(add_sarif_library name)
       "SHELL:-Xfrontend -module-abi-name -Xfrontend ${SWIFT_MODULE_ABI_NAME_PREFIX}${name}"
   >)
 
-  target_compile_options(${target} PRIVATE
-    $<$<COMPILE_LANGUAGE:Swift>:-color-diagnostics>
-  )
-
-  if(LLVM_USE_LINKER)
-    target_link_options(${target} PRIVATE
-      "-use-ld=${LLVM_USE_LINKER}"
-    )
-  endif()
-
-  set_target_properties(${target} PROPERTIES
-    BUILD_WITH_INSTALL_RPATH YES
-  )
-
   if(SWIFT_HOST_LIBRARIES_RPATH)
     # Don't add builder's stdlib RPATH automatically.
     target_compile_options(${target} PRIVATE -no-toolchain-stdlib-rpath)
     set_property(TARGET ${target}
       PROPERTY INSTALL_RPATH "${SWIFT_HOST_LIBRARIES_RPATH}"
     )
-  endif()
-
-  get_target_property(lib_type ${target} TYPE)
-  if(lib_type STREQUAL SHARED_LIBRARY)
-    if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-      # Allow install_name_tool to update paths (for rdar://109473564)
-      target_link_options(${target} PRIVATE
-        "SHELL:-Xlinker -headerpad_max_install_names")
-    endif()
   endif()
 
   if(PROJECT_IS_TOP_LEVEL OR SARIF_INSTALL_TARGETS)

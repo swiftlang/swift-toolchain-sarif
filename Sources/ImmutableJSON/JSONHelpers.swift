@@ -70,12 +70,17 @@ public struct ImmutableJSONDecoder: Sendable {
   private let decoder: JSONDecoder
 
   public static let shared = ImmutableJSONDecoder()
+  public static let json5 = ImmutableJSONDecoder(allowsJSON5: true)
 
   public static let defaultDateDecodingStrategy = JSONDecoder
     .DateDecodingStrategy.iso8601
 
-  public init(dateDecoding: JSONDecoder.DateDecodingStrategy? = nil) {
-    self.decoder = Self.makeDecoder(dateDecoding: dateDecoding)
+  public init(
+    dateDecoding: JSONDecoder.DateDecodingStrategy? = nil,
+    allowsJSON5: Bool? = nil
+  ) {
+    self.decoder = Self.makeDecoder(
+      dateDecoding: dateDecoding, allowsJSON5: allowsJSON5)
   }
 
   public func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T
@@ -91,15 +96,21 @@ public struct ImmutableJSONDecoder: Sendable {
   }
 
   public func makeDecoder() -> JSONDecoder {
-    Self.makeDecoder(dateDecoding: self.decoder.dateDecodingStrategy)
+    Self.makeDecoder(
+      dateDecoding: self.decoder.dateDecodingStrategy,
+      allowsJSON5: self.decoder.allowsJSON5)
   }
 
   private static func makeDecoder(
-    dateDecoding: JSONDecoder.DateDecodingStrategy?
+    dateDecoding: JSONDecoder.DateDecodingStrategy?,
+    allowsJSON5: Bool?
   ) -> JSONDecoder {
     let decoder = JSONDecoder()
     decoder.dateDecodingStrategy =
       dateDecoding ?? Self.defaultDateDecodingStrategy
+    if let allowsJSON5 {
+      decoder.allowsJSON5 = allowsJSON5
+    }
     return decoder
   }
 }
@@ -125,8 +136,16 @@ extension Decodable {
     try fromJSONData(string.data(using: .utf8)!)
   }
 
+  public static func fromJSON5String(_ string: String) throws -> Self {
+    try fromJSON5Data(string.data(using: .utf8)!)
+  }
+
   public static func fromJSONData(_ data: Data) throws -> Self {
     try ImmutableJSONDecoder.shared.decode(Self.self, from: data)
+  }
+
+  public static func fromJSON5Data(_ data: Data) throws -> Self {
+    try ImmutableJSONDecoder.json5.decode(Self.self, from: data)
   }
 }
 

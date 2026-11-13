@@ -42,12 +42,14 @@ public final class Run: JSONRepresentable<RunRecord> {
   public var defaultEncoding: String?
   public var defaultSourceLanguage: HierarchicalString?
   public var invocations: [Invocation]
+  public var baselineGuid: UUID?
 
   internal init(
     from record: RunRecord, propertyProviders: PropertyProviders,
     sink: any ValidationSink
   ) throws {
     self.columnKind = record.columnKind
+    self.baselineGuid = record.baselineGuid
 
     let artifactMap = ArtifactLoadMap(sink: sink)
     let artifactDefaults = try RunContext(from: record, sink: sink)
@@ -173,7 +175,7 @@ public final class Run: JSONRepresentable<RunRecord> {
       externalPropertyFileReferences: nil,  // FIXME
       automationDetails: nil,  // FIXME
       runAggregates: nil,  // FIXME
-      baselineGuid: nil,  // FIXME
+      baselineGuid: self.baselineGuid,
       language: nil,  // FIXME
       taxonomies: nil,  // FIXME
       translations: nil,  // FIXME

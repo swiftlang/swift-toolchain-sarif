@@ -12,6 +12,7 @@ add_sarif_library(SARIF
   DefinitionLoadMap.swift
   DefinitionSaveMap.swift
   Fingerprinted.swift
+  Forest.swift
   Invocation.swift
   JSONRepresentable.swift
   Location.swift
@@ -45,4 +46,5 @@ target_link_libraries(SARIF PUBLIC
   SARIFRecords)
 
 target_link_libraries(${SARIF_TARGET_NAMESPACE}SARIF PUBLIC
+  BitCollections
   OrderedCollections)

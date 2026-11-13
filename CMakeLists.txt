@@ -82,6 +82,7 @@ set(SARIF_SWIFT_COLLECTIONS_TAG "1.1.6")
 # Cached so that an enclosing build can read this and install the targets
 # alongside this package's own libraries.
 set(SARIF_SWIFT_COLLECTIONS_TARGETS
+  BitCollections
   OrderedCollections
   InternalCollectionsUtilities
   CACHE INTERNAL "swift-collections targets built for swift-toolchain-sarif")

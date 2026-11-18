@@ -56,15 +56,17 @@ public struct JSONDictionary<K: Hashable & Codable, V>: Sequence,
 
   public func mapValues<T>(
     _ transform: (V) throws -> T
-  ) rethrows -> OrderedDictionary<K, T> {
-    try self.dictionary.mapValues(transform)
-  }
-
-  public func mapValues<T>(
-    _ transform: (V) throws -> T
   ) rethrows -> JSONDictionary<K, T> {
     let orderedDictionary: OrderedDictionary<K, T> = try self.dictionary
       .mapValues(transform)
+    return .init(from: orderedDictionary)
+  }
+
+  public func compactMapValues<T>(_ transform: (V) throws -> T?) rethrows
+    -> JSONDictionary<K, T>
+  {
+    let orderedDictionary: OrderedDictionary<K, T> = try self.dictionary
+      .compactMapValues(transform)
     return .init(from: orderedDictionary)
   }
 
@@ -96,6 +98,12 @@ public struct JSONDictionary<K: Hashable & Codable, V>: Sequence,
   public subscript(_ key: K, default defaultValue: @autoclosure () -> V) -> V {
     get { self.dictionary[key, default: defaultValue()] }
     set { self.dictionary[key, default: defaultValue()] = newValue }
+  }
+
+  public func filter(_ isIncluded: (_ element: Element) throws -> Bool) rethrows
+    -> Self
+  {
+    .init(from: try self.dictionary.filter(isIncluded))
   }
 
   public func makeIterator() -> Iterator {

@@ -390,19 +390,22 @@ public struct SuppressionRecord: SARIFRecordConstraints {
   public let location: LocationRecord?
   public let guid: UUID?
   public let justification: String?
+  public let properties: PropertyBagRecord?
 
   public init(
     kind: SuppressionKind,
     status: SuppressionStatus? = nil,
     location: LocationRecord? = nil,
     guid: UUID? = nil,
-    justification: String? = nil
+    justification: String? = nil,
+    properties: PropertyBagRecord? = nil
   ) {
     self.kind = kind
     self.status = status
     self.location = location
     self.guid = guid
     self.justification = justification
+    self.properties = properties
   }
 }
 

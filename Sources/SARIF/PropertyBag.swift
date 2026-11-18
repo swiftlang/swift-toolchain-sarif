@@ -157,6 +157,10 @@ public struct AnyProperty: JSONRepresentable<AnyJSON> {
     self.wrapper = PropertyWrapper<Provider>(value: value)
   }
 
+  public init(string: String) {
+    self.wrapper = AnyJSON.string(string)
+  }
+
   internal init(
     key: HierarchicalString, value: AnyJSON, providers: PropertyProviders
   ) throws {

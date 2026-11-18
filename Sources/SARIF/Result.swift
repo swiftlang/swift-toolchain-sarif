@@ -123,6 +123,7 @@ public final class Result: JSONRepresentableWithContext<ResultRecord>,
   public var correlationGuid: UUID? = nil
   public var message: Message
   public var locations: [Location] = []
+  public var relatedLocations: [Location] = []
   public var analysisTarget: ArtifactLocationReference? = nil
   public var fingerprints: Fingerprints = .empty
   public var partialFingerprints: Fingerprints = .empty
@@ -130,6 +131,7 @@ public final class Result: JSONRepresentableWithContext<ResultRecord>,
   public var rule: Rule
   public var kind: Kind = .fail(level: .warning)
   public var rank: Float? = nil
+  public var suppressions: [Suppression] = []
   public var resolvedMessage: MultiFormatMessageString {
     self.getMessageString()!
   }
@@ -145,8 +147,8 @@ public final class Result: JSONRepresentableWithContext<ResultRecord>,
   }
 
   internal init(
-    from resultRecord: ResultRecord, sink: any ValidationSink,
-    rules: RuleResolver,
+    from resultRecord: ResultRecord, propertyProviders: PropertyProviders,
+    sink: any ValidationSink, rules: RuleResolver,
     artifacts: ArtifactReferenceResolver,
     logicalLocations: LogicalLocationLoadMap
   ) throws {
@@ -170,11 +172,20 @@ public final class Result: JSONRepresentableWithContext<ResultRecord>,
       case .review: .review
       }
     self.message = try .init(from: record.message, sink: sink)
-    self.locations = try (record.locations ?? []).map {
-      try Location(
-        from: $0, sink: sink, artifacts: artifacts,
-        logicalLocations: logicalLocations)
+
+    func loadLocations(_ locationRecords: [LocationRecord]?) throws
+      -> [Location]
+    {
+      try (locationRecords ?? []).map { locationRecord in
+        try Location(
+          from: locationRecord, sink: sink, artifacts: artifacts,
+          logicalLocations: logicalLocations)
+      }
     }
+
+    self.locations = try loadLocations(record.locations)
+    self.relatedLocations = try loadLocations(record.relatedLocations)
+
     self.analysisTarget = try record.analysisTarget.map {
       try ArtifactLocationReference(from: $0, sink: sink, artifacts: artifacts)
     }
@@ -182,7 +193,14 @@ public final class Result: JSONRepresentableWithContext<ResultRecord>,
     self.partialFingerprints = record.partialFingerprints ?? .init()
     self.rank = record.rank  // TODO: Validation
 
-    // TODO: codeFlows, graphs, graphTraversals, stacks, relatedLocations, suppressions, baselineState, attachments, workItemUris, hostedViewerUri, provenance, fixes, occurrenceCount,
+    self.suppressions = try (record.suppressions ?? []).map {
+      try Suppression(
+        from: $0, propertyProviders: propertyProviders, sink: sink,
+        artifacts: artifacts,
+        logicalLocations: logicalLocations)
+    }
+
+    // TODO: codeFlows, graphs, graphTraversals, stacks, relatedLocations, baselineState, attachments, workItemUris, hostedViewerUri, provenance, fixes, occurrenceCount,
 
     try $record.validateRuleId(\.ruleId)
     if let rule = record.rule {
@@ -250,8 +268,9 @@ public final class Result: JSONRepresentableWithContext<ResultRecord>,
       ruleIndex: ruleReference.ruleIndex,
       rule: ruleReference.rule,
       locations: try locations.ifNotEmpty?.toJSON(with: locationsContext),
-      relatedLocations: nil,  // FIXME
-      suppressions: nil,  // FIXME
+      relatedLocations: try relatedLocations.ifNotEmpty?.toJSON(
+        with: locationsContext),
+      suppressions: try suppressions.ifNotEmpty?.toJSON(with: locationsContext),
       fixes: nil,  // FIXME
       fingerprints: try fingerprints.ifNotEmpty?.toJSON(),
       partialFingerprints: try partialFingerprints.ifNotEmpty?.toJSON(),

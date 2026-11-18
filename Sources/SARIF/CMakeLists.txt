@@ -31,6 +31,7 @@ add_sarif_library(SARIF
   Run.swift
   SARIFLog.swift
   Spaceship.swift
+  Suppression.swift
   SynthesizedDefinitionLoadMap.swift
   Tool.swift
   ToolComponent.swift

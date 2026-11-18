@@ -84,7 +84,8 @@ public final class Run: JSONRepresentable<RunRecord> {
       }
       .map { resultRecord in
         try Result(
-          from: resultRecord, sink: sink, rules: ruleResolver,
+          from: resultRecord, propertyProviders: propertyProviders,
+          sink: sink, rules: ruleResolver,
           artifacts: artifactResolver,
           logicalLocations: logicalLocationMap)
       }

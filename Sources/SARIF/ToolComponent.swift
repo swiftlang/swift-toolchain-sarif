@@ -129,7 +129,7 @@ public final class ToolComponent: JSONRepresentable<ToolComponentRecord> {
   public var localizedDataSementicVersion: String?
   @WithFallbackToSemanticVersion
   public var minimumRequiredLocalizedDataSemanticVersion: String?
-  public private(set) var rules: [Rule] = []
+  public var rules: OrderedSet<Rule> = []
   public var notifications: [Notification] = []
   public var globalMessageStrings:
     OrderedDictionary<MessageID, MultiFormatMessageString> = [:]
@@ -180,11 +180,12 @@ public final class ToolComponent: JSONRepresentable<ToolComponentRecord> {
     self._localizedDataSementicVersion = .init()
     self._minimumRequiredLocalizedDataSemanticVersion = .init()
 
-    self.rules = try (record.rules ?? []).map { ruleRecord in
+    let rules = try (record.rules ?? []).map { ruleRecord in
       let rule = try Rule(from: ruleRecord, in: self, sink: sink)
       try context.append(rule, guid: rule.guid)
       return rule
     }
+    self.rules = .init(rules)
 
     self.notifications = try (record.notifications ?? []).map {
       try Notification(from: $0, in: self, sink: sink)

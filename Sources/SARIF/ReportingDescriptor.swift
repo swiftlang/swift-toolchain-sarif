@@ -47,6 +47,10 @@ public final class ReportingDescriptor<Kind: ReportingDescriptorKind>: Hashable,
   public var help: MultiFormatMessageString?
   public var defaultConfiguration: ReportingConfiguration?
 
+  public convenience init(id: String, in toolComponent: ToolComponent) {
+    self.init(id: id, in: toolComponent, isSynthetic: false)
+  }
+
   internal init(id: String, in toolComponent: ToolComponent, isSynthetic: Bool)
   {
     self.id = id

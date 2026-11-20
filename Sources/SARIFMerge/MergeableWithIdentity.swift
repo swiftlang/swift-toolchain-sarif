@@ -1,5 +1,5 @@
 internal protocol MergeStateProtocolWithContext<Object> {
-  associatedtype Object: MergeableWithIdentity where Object.MergeState == Self
+  associatedtype Object: Mergeable where Object.MergeState == Self
 
   typealias Context = Object.Context
 
@@ -7,17 +7,6 @@ internal protocol MergeStateProtocolWithContext<Object> {
 
   mutating func merge(
     merger: inout PropertyMerger<Object>, with context: Context) throws
-}
-
-internal protocol ValueMergeStateProtocolWithContext<Value> {
-  associatedtype Value: MergeableValue where Value.MergeState == Self
-
-  typealias Context = Value.Context
-
-  init()
-
-  mutating func merge(
-    merger: inout PropertyMerger<Value>, with context: Context) throws
 }
 
 internal protocol MergeStateProtocol<Object>: MergeStateProtocolWithContext
@@ -33,12 +22,10 @@ extension MergeStateProtocol {
   }
 }
 
-internal protocol MergeableWithIdentity: AnyObject, MergeHashable {
+internal protocol Mergeable: MergeHashable {
   associatedtype MergeState: MergeStateProtocolWithContext
   where MergeState.Object == Self
 }
 
-internal protocol MergeableValue: MergeHashable {
-  associatedtype MergeState: ValueMergeStateProtocolWithContext
-  where MergeState.Value == Self
+internal protocol MergeableWithIdentity: AnyObject, Mergeable {
 }

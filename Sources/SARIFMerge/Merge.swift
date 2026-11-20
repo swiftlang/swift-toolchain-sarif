@@ -69,16 +69,17 @@ extension ToolComponent: MergeableWithIdentity {
       // Ignore `isComprehensive` for now, since we don't really expesct it to be set by Clang anyway.
       try merger.ignore(keys: \.$isComprehensive)
 
-      let output = merger.output
-      try self.rules.merge(key: \.rules, merger: &merger, map: context.rules) {
-        inputRule in
-        output.addRule(id: inputRule.id)
+      let outputToolComponent = merger.output
+      try self.rules.merge(key: \.rules, merger: &merger) { inputRule in
+        .init(id: inputRule.id, in: outputToolComponent)
+      } recordReference: { input, output in
+        context.rules.addDefinition(from: input, into: output)
       }
     }
   }
 }
 
-extension Rule: MergeableWithIdentity, MergeHashable {
+extension Rule: MergeableWithIdentity, Mergeable, MergeHashable {
   typealias Context = Void
 
   internal struct MergeKey: MergeKeyProtocol<Rule> {
@@ -120,7 +121,7 @@ extension Tool: MergeableWithIdentity {
   }
 
   internal struct MergeState: MergeStateProtocolWithContext<Tool> {
-    private let driver = Merger<ToolComponent>()
+    private var driver = Merger<ToolComponent>()
     private var extensions = ArrayMerger<ToolComponent, Tool>()
 
     mutating func merge(
@@ -130,10 +131,10 @@ extension Tool: MergeableWithIdentity {
       try self.driver.merge(
         key: \.driver, merger: &merger, with: toolComponentContext)
       try self.extensions.merge(
-        key: \.extensions, merger: &merger, with: toolComponentContext,
-        map: .init()
+        key: \.extensions, merger: &merger, with: toolComponentContext
       ) { inputToolComponent in
         ToolComponent(named: inputToolComponent.name)
+      } recordReference: { _, _ in
       }
     }
   }
@@ -227,7 +228,7 @@ extension Result: MergeableWithIdentity {
   }
 }
 
-extension Region: MergeableValue {
+extension Region: Mergeable {
   typealias Context = Void
 
   internal struct MergeKey: MergeKeyProtocol<Region> {
@@ -242,7 +243,7 @@ extension Region: MergeableValue {
     }
   }
 
-  internal struct MergeState: ValueMergeStateProtocolWithContext<Region> {
+  internal struct MergeState: MergeStateProtocolWithContext<Region> {
     func merge(merger: inout PropertyMerger<Region>, with context: Context)
       throws
     {
@@ -268,7 +269,7 @@ extension ArtifactLocation: MergeHashable {
 
 }
 
-extension ArtifactLocationReference: MergeableValue {
+extension ArtifactLocationReference: Mergeable {
   typealias Context = ReferenceMergeMap<Artifact>
 
   internal struct MergeKey: MergeKeyProtocol<ArtifactLocationReference> {
@@ -290,7 +291,7 @@ extension ArtifactLocationReference: MergeableValue {
     }
   }
 
-  internal struct MergeState: ValueMergeStateProtocolWithContext {
+  internal struct MergeState: MergeStateProtocolWithContext {
     func merge(
       merger: inout PropertyMerger<ArtifactLocationReference>,
       with context: Context
@@ -343,7 +344,7 @@ extension LogicalLocation: MergeableWithIdentity {
   }
 }
 
-extension PhysicalLocation: MergeableValue {
+extension PhysicalLocation: Mergeable {
   typealias Context = ReferenceMergeMap<Artifact>
 
   internal struct MergeKey: MergeKeyProtocol<PhysicalLocation> {
@@ -360,7 +361,7 @@ extension PhysicalLocation: MergeableValue {
     }
   }
 
-  internal struct MergeState: ValueMergeStateProtocolWithContext<
+  internal struct MergeState: MergeStateProtocolWithContext<
     PhysicalLocation
   >
   {
@@ -380,7 +381,7 @@ extension PhysicalLocation: MergeableValue {
   }
 }
 
-extension Location: MergeableValue {
+extension Location: Mergeable {
   struct Context {
     let artifacts: ReferenceMergeMap<Artifact>
     let logicalLocations: ReferenceMergeMap<LogicalLocation>
@@ -402,7 +403,7 @@ extension Location: MergeableValue {
     }
   }
 
-  internal struct MergeState: ValueMergeStateProtocolWithContext<Location> {
+  internal struct MergeState: MergeStateProtocolWithContext<Location> {
     func merge(merger: inout PropertyMerger<Location>, with context: Context)
       throws
     {
@@ -444,13 +445,11 @@ extension Run: MergeableWithIdentity {
     private var tool = Merger<Tool>()
     private var artifacts = ArrayMerger<Artifact, Run>()
     private var results = ArrayMerger<Result, Run>()
-    private var logicalLocations = ArrayMerger<LogicalLocation, Run>()
+    private var logicalLocations = ForestMerger<LogicalLocationForest, Run>()
 
     mutating func merge(
       merger: inout PropertyMerger<Run>, with context: Context
     ) throws {
-      let output = merger.output
-
       try merger.assertEqualOrNil(keys: \.columnKind)
       try merger.concatenate(key: \.invocations)
 
@@ -460,21 +459,21 @@ extension Run: MergeableWithIdentity {
 
       let artifactsMap = ReferenceMergeMap<Artifact>()
       try self.artifacts.merge(
-        key: \.artifacts, merger: &merger, map: artifactsMap
+        key: \.artifacts, merger: &merger
       ) { inputArtifact in
-        output.addArtifact()
+        .init()
+      } recordReference: { input, output in
+        artifactsMap.addDefinition(from: input, into: output)
       }
 
       let logicalLocationsMap = ReferenceMergeMap<LogicalLocation>()
-      try self.logicalLocations.mergeForest(
+      try self.logicalLocations.merge(
         key: \.logicalLocations, merger: &merger, with: logicalLocationsMap,
-        map: logicalLocationsMap,
+        recordReference: logicalLocationsMap.addDefinition,
         makeForest: { LogicalLocationForest(elements: $0) }
       ) {
         inputLocation, parentLocation in
         LogicalLocation()
-      } addOutput: { outputLocation in
-        output.logicalLocations.append(outputLocation)
       }
 
       let resultContext = Result.Context(
@@ -482,12 +481,12 @@ extension Run: MergeableWithIdentity {
         logicalLocations: logicalLocationsMap,
         inputSharedLogicalLocations: merger.input.logicalLocations)
       try self.results.merge(
-        key: \.results, merger: &merger, with: resultContext, map: .init()
-      ) {
-        inputResult in
-        output.addResult(
+        key: \.results, merger: &merger, with: resultContext
+      ) { inputResult in
+        .init(
           rule: rules.resolve(from: inputResult.rule),
           message: inputResult.message)
+      } recordReference: { _, _ in
       }
     }
   }
@@ -511,11 +510,10 @@ extension SARIFLog: MergeableWithIdentity {
         merger.output.$schema = merger.input.$schema
       }
 
-      let output = merger.output
-      try self.runs.merge(key: \.runs, merger: &merger, map: .init()) {
+      try self.runs.merge(key: \.runs, merger: &merger) {
         inputRun in
         let inputDriver = inputRun.tool.driver
-        return output.addRun(
+        return .init(
           tool: Tool(
             driver: ToolComponent(
               named: inputDriver.name, guid: inputDriver.guid)))
@@ -541,9 +539,11 @@ public struct SARIFLogMerger: ~Copyable {
   }
 
   public mutating func merge(from inputLog: SARIFLog) throws {
-    var merger = PropertyMerger(
-      from: inputLog, into: self.outputLog, first: self.first, sink: self.sink)
-    try self.mergeState.merge(merger: &merger)
+    try PropertyMerger.merge(
+      from: inputLog, into: self.outputLog, first: self.first, sink: self.sink
+    ) { merger in
+      try self.mergeState.merge(merger: &merger)
+    }
     self.first = false
   }
 }

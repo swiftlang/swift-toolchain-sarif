@@ -43,7 +43,7 @@ public final class SARIFLog: Encodable, Decodable, DecodableWithConfiguration {
   }
   @FallbackToVersionSchema
   public var schema: URL
-  public private(set) var runs: [Run] = []
+  public var runs: [Run] = []
 
   public init(version: SARIFVersion = .v2_1_0) {
     self.version = version

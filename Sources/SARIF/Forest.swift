@@ -3,9 +3,11 @@ fileprivate import OrderedCollections
 /// An array of elements, each of which has an optional parent element within the array.
 ///
 /// The elements need not be in any particular order with respect to their parents.
-package protocol Forest {
+package protocol Forest<Element> {
+  associatedtype Element
+
   /// The type of the collection holding the elements.
-  associatedtype CollectionType: RandomAccessCollection
+  associatedtype CollectionType: RandomAccessCollection<Element>
   where CollectionType.Index == Int
 
   /// The collection of elements.

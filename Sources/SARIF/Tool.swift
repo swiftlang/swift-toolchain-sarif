@@ -7,7 +7,7 @@ internal struct ToolSaveContext {
 
 //@Mergeable
 public final class Tool: JSONRepresentable<ToolRecord> {
-  public let driver: ToolComponent
+  public var driver: ToolComponent
   public var extensions: [ToolComponent] = []
 
   public convenience init(driverName: String) {

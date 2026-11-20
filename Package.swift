@@ -87,6 +87,7 @@ let package = Package(
       name: "SARIFMergeTests",
       dependencies: [
         "ImmutableJSON",
+        .product(name: "OrderedCollections", package: "swift-collections"),
         "SARIF",
         "SARIFMerge",
         "SARIFTestUtilities",
